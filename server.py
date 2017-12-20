@@ -1,5 +1,7 @@
 import socket
 
+HOST = 'localhost'
+PORT = 9876
 
 class server:
 	def __init__(self, sock=None):
@@ -9,8 +11,8 @@ class server:
 			self.server_socket = sock 
 
 		# get local machine name
-		self.host = socket.gethostname()
-		self.port = 9876
+		self.host = HOST
+		self.port = PORT
 		# bind to the port with this server
 		self.server_socket.bind((self.host, self.port))
 		# queue up to 5 requests
