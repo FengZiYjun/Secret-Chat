@@ -50,6 +50,7 @@ class Client(threading.Thread):
 
 	def send(self, msg):
 		print('send message')
+		#self.sock.sendall(self.__make_protocol_msg(meg, self.dest_addr, 2))
 
 	def run(self):
 		inputs = [self.sock]
@@ -75,7 +76,7 @@ class Client(threading.Thread):
 					except socket.error:
 						print('Socket error in reading')
 						GUI.display_alert('Socket error. Exit.')
-						self.close()
+						self.sock.close()
 						break
 
 				self.process_inputs(data)

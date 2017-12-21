@@ -35,7 +35,9 @@ class GUI(threading.Thread):
 
     def send_message(self, message):
         """Enqueue message in client's queue"""
-        self.client.queue.put(message)
+        # add 
+        print('GUI sent: ' + message)
+        self.client.queue.put(self.client.encapsulate(message, action='1 ' + self.client.target))
 
     def set_target(self, target):
         """Set target for messages"""
@@ -43,8 +45,9 @@ class GUI(threading.Thread):
 
     def notify_server(self, message, action):
         """Notify server after action was performed"""
-        data = action + ";" + message
-        data = data.encode(ENCODING)
+        #data = action + ";" + message
+        data = message
+        # data = data.encode(ENCODING)  do not encode before sending!
         self.client.notify_server(data, action)
 
     def login(self, login):
@@ -197,9 +200,10 @@ class ChatWindow(Window):
         """Send message from entry field to target"""
         text = self.entry.get(1.0, tk.END)
         if text != '\n':
-            message = 'msg;' + self.login + ';' + self.target + ';' + text[:-1]
+            #message = 'msg;' + self.login + ';' + self.target + ';' + text[:-1]
+            message = text[:-1]
             print(message)
-            self.gui.send_message(message.encode(ENCODING))
+            self.gui.send_message(message)
             self.entry.mark_set(tk.INSERT, 1.0)
             self.entry.delete(1.0, tk.END)
             self.entry.focus_set()

@@ -1,24 +1,260 @@
 import socket
+from myprotocol import *
+import threading
+import queue
+import time
+import select
+import pyaes
 
 HOST = 'localhost'
 PORT = 9876
 
-class server:
-	def __init__(self, sock=None):
-		if sock is None:
-			self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		else:
-			self.server_socket = sock 
+class Server(threading.Thread):
+	def __init__(self, host, port):
+		super().__init__(daemon=True, target=self.run)
+		
+		self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 		# get local machine name
 		self.host = HOST
 		self.port = PORT
-		# bind to the port with this server
-		self.server_socket.bind((self.host, self.port))
-		# queue up to 5 requests
-		self.server_socket.listen(5)
-		# record the listening IP
-		self.client_pool = list()
+
+		self.buffer_size = 2048
+
+		# used as write buffer
+		# key: client_socket  value: queue of encrypted bytes
+		# sent by client_sock.send()
+		self.msg_queues = {}
+
+		# record all connection sockets
+		# 
+		self.connection_list = []
+
+		# key: login_user(the name string)
+		# value: client_socket
+		self.login_dict = {}
+
+		# A reentrant lock must be released by the thread that acquired it. 
+		# Once a thread has acquired a reentrant lock, the same thread may acquire it again without blocking; 
+		# the thread must release it once for each time it has acquired it.
+		self.lock = threading.RLock()
+
+		# Socket setup
+		self.shutdown = False
+		try:
+			# bind to the port with this server
+			self.server_socket.bind((str(self.host), int(self.port)))
+			# queue up to 5 requests
+			self.server_socket.listen(10)
+			
+			#self.server_socket.setblocking(False)
+			
+			# start the server thread
+			self.start()
+		except socket.error:
+			self.shutdown = True
+
+		# main loop
+		while not self.shutdown:
+			# waiting for cmd
+			msg = input()
+			if msg == 'quit':
+				for sock in self.connection_list:
+					sock.close()
+				self.shutdown = True
+				self.server_socket.close()
+
+	def remove_user(self, user, user_sock):
+		if user in self.login_dict:
+			del self.login_dict[user]
+		if user_sock in self.connection_list:
+			self.connection_list.remove(user_sock)
+		if user_sock in self.msg_queues:
+			del self.msg_queues[user_sock]
+
+	def run(self):
+		print('server is running.')
+		while True:
+			with self.lock:
+				try:
+					# passively accept TCP client connection, waiting until connection arrives.
+					client_sock, addr = self.server_socket.accept()
+				except socket.error:
+					time.sleep(1)
+					continue
+
+			print("Got a connection from %s" % str(addr))
+			print('Socket connects %s and %s' % client_sock.getsockname(), client_sock.getpeername())
+
+			#client_sock.setblocking(False)
+			if client_sock not in self.connection_list:
+				self.connection_list.append(client_sock)
+
+			self.msg_queues[client_sock] = queue.Queue()
+			ClientThread(self, client_sock, addr)
+
+
+class ClientThread(threading.Thread):
+
+	def __init__(self, master, sock, address):
+		# master --- Server_socket
+		# sock --- client_socket (connection socket)
+		# address --- client addr
+		super().__init__(daemon=True, target=self.run)
+
+		self.master = master
+		self.sock = sock
+		self.address = address
+		self.buffer_size = 2048
+
+		# the user name
+		self.login_user = ''
+		self.inputs = []
+		self.outpus = []
+
+		# a string received from client
+		self.__password = None
+
+		self.start()
+
+	def run(self):
+		""" Main method for client thread processing client socket"""
+		print('New thread started for connection from ' + str(self.address))
+		self.inputs = [self.sock]
+		self.outpus = [self.sock]
+		while self.inputs:
+			try:
+				readable, writable, exceptional = select.select(self.inputs, self.outpus, self.inputs)
+			except select.error:
+				self.disconnect()
+				break
+
+			if self.sock in readable:
+				try:
+					data = self.sock.recv(self.buffer_size)
+				except socket.error:
+					self.disconnect()
+					break
+
+				shutdown = self.process_recv_data(data)
+				# disconnect when empty data or logout
+				if shutdown:
+					self.disconnect()
+					break
+
+			if self.sock in writable:
+				if not self.master.msg_queues[self.sock].empty():
+					data = self.master.msg_queues[self.sock].get()
+					try:
+						# sent by socket directly
+						self.sock.send(data)
+					except socket.error:
+						self.disconnect()
+						break
+
+			if self.sock in exceptional:
+				self.disconnect()
+
+		# out of the main loop
+		print('Closing client thread, connection' + str(self.address))
+
+	def update_client_list(self):
+    	# Tell all users that client list has changed
+		print('update_client_list')
+		# used by GUI
+		clients = ' '.join([user for user in self.master.login_dict])
+		msg = make_protocol_msg(clients, 'ALL', '2', HOST, PORT, action='2')
+		cipher_bytes = pyaes.AESModeOfOperationCTR(self.__password.encode()).encrypt(msg)
+		for cliens_sock, queue in self.master.msg_queues.items():
+			queue.put(cipher_bytes)
+
+	def disconnect(self):
+		"""disconnect from server"""
+		print('Client {} has disconnected.'.format(self.login_user))
+		# remove related info in Server
+		self.master.remove_user(self.login_user, self.sock)
+		self.sock.close()
+		self.update_client_list()
+
+	def process_recv_data(self, data):
+		# return a shutdown signal
+		if data is None or data == '':
+			return True
+		# data --- unicode bytes for the first time, but encrypted bytes later
+		shutdown = False
+		try:
+			data = data.decode('utf-8')
+		except UnicodeDecodeError:
+			data = pyaes.AESModeOfOperationCTR(self.__password.encode()).decrypt(data).decode('utf-8')
+
+		rec_dict = analyze_protocol_msg(data)
+		print('Server receives: %s' % str(rec_dict))
+		
+		# check for first connection
+		if rec_dict['affair'] == '0':
+
+			# send the paten to client
+			public, private, modulus = self.__make_keys()
+			mes = make_protocol_msg(str(public) + ' ' + str(modulus), rec_dict['src'], '1', HOST, PORT)
+			self.sock.sendall(mes.encode())
+
+			# receive client password
+			meg = self.__decrypt(self.sock.recv(1024).decode('utf-8'), private, modulus)
+			rec_dict = analyze_protocol_msg(meg)
+			print('receive: %s' % str(rec_dict))
+			self.__password = rec_dict['msg']
+
+			print('ready for login')
+			# reply to the client of successful loggin
+			msg = make_protocol_msg('ready for login', rec_dict['src'], '2', HOST, PORT, action='0')
+			cipher_bytes = pyaes.AESModeOfOperationCTR(self.__password.encode()).encrypt(msg)
+			self.sock.sendall(cipher_bytes)
+
+		# Normal Communication
+		elif rec_dict['affair'] == '2' and self.__password is not None:
+			# action field available
+			if 'action' in rec_dict:
+				action = rec_dict['action']
+				
+				# user login
+				if action == '0':
+					# get the name of the login user
+					self.login_user = rec_dict['msg']
+			
+					# allocate this socket to this user
+					if self.login_user in self.master.login_dict:
+						print('redundent login. Switch to new.')
+						self.remove_user(self.login_user, self.master.login_dict[self.login_user])
+					self.master.login_dict[self.login_user] = self.sock
+
+					# tell all users the login of a new one
+					self.update_client_list()
+
+				# user log out
+				elif action == '3':
+					shutdown = True
+				
+				# one-to-one chat
+				elif action[0] == '1':
+					to_user = action[2:]
+					if to_user in self.master.login_dict:
+						sock = self.master.login_dict[to_user]
+						msg = rec_dict['msg']
+						print('message sent to ' + to_user + ': ' + msg)
+						msg = make_protocol_msg(msg, to_user, 2, self.address[0], self.address[1], action='1')
+						cipher_bytes = pyaes.AESModeOfOperationCTR(self.__password.encode()).encrypt(msg)
+						self.master.msg_queues[sock].put(cipher_bytes)
+				
+				# broadcast
+				elif action[0] == '2':
+					msg = rec_dict['msg']
+					print('message broadcase: ' + msg)
+					cipher_bytes = pyaes.AESModeOfOperationCTR(self.__password.encode()).encrypt(msg)
+					for cliens_sock, queue in self.msg_queues.items():
+						queue.put(cipher_bytes)
+			else:
+				print('no action available')
+		return shutdown
 
 	def extended_euclidean(self, a, b):
 		# xa + yb = gcd(a, b)
@@ -46,61 +282,11 @@ class server:
 	def __decrypt(self, data, private_key, n):
 		return ''.join([chr((int(x) ** private_key) % n) for x in data.split(' ')])
 
-	def __make_protocol_msg(self, message, dest_addr, affair):
-		head = 'des ' + dest_addr + '\n'
-		head += 'src ' + str(self.host) + ':' + str(self.port) + '\n'
-		head += 'agent server.py' + '\n'
-		head += str(affair) + '\n'
-		head += 'head_length ' + str(len(head)) + '\n'
-		return (head + str(message)).encode()
-
-	def __analyze_protocol_msg(self, data):
-		ret = dict()
-		labels = ['des', 'src', 'agent', 'affair', 'head_length', 'msg']
-		pt = 0
-		for label in labels[:-1]:
-			pt = data.find('\n')
-			ret[label] = data[0: pt]
-			data = data[pt+1:]
-		ret[labels[-1]] = data
-		return ret
-
-	def run(self):
-
-		while True:
-			# establish a connection
-			# passively accept TCP client connection, waiting until connection arrives.
-			clientsocket,addr = self.server_socket.accept()
-
-			print("Got a connection from %s" % str(addr))
-			print('Socket connects %s and %s' % clientsocket.getsockname(), clientsocket.getpeername())
-
-			meg = clientsocket.recv(1024)
-			rec_dict = self.__analyze_protocol_msg(meg.decode('utf-8'))
-			print('receive: %s' % str(rec_dict))
-
-			# check for first connection
-			if str(addr) not in self.client_pool and rec_dict['affair'] == '0':
-				self.client_pool.append(str(addr))
-				public, private, modulus = self.__make_keys()
-				mes = self.__make_protocol_msg(str(public) + ' ' + str(modulus), rec_dict['des'], '1')
-				clientsocket.send(mes)
-
-				meg = self.__decrypt(clientsocket.recv(1024).decode('utf-8'), private, modulus)
-				rec_dict = self.__analyze_protocol_msg(meg)
-				print('receive: %s' % str(rec_dict))
-				clientsocket.close()
-				print('socket closed')
-			else:
-			
-				#clientsocket.send(send_meg.encode('utf-8'))
-				clientsocket.close() 
-			
 
 
-
-server = server()
-server.run()
+# Create new server with (IP, port)
+if __name__ == '__main__':
+    server = Server(HOST, PORT)
 
 
 
