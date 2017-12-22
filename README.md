@@ -32,7 +32,7 @@ Usage
 Notice
 ------
 1. All data between server and client is powerfully encrypted under the TLS/SSL protocol used by HTTPS. Your personal infomation would never be known by the third.
-2. **Secret Words** is built for secret chatting. Therefore, neither the server nor the client stores your data, including your user name, account, friend list and chatting history. 
+2. *Secret Chat* is built for secret chatting. Therefore, neither the server nor the client stores your data, including your user name, account, friend list and chatting history. 
 
 Technical Details
 ------
