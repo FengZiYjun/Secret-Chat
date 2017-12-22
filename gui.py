@@ -37,7 +37,11 @@ class GUI(threading.Thread):
         """Enqueue message in client's queue"""
         # add 
         print('GUI sent: ' + message)
-        self.client.queue.put(self.client.encapsulate(message, action='1 ' + self.client.target))
+        if self.client.target == 'ALL':
+            act = '2'
+        else:
+            act = '1 ' + self.client.target
+        self.client.queue.put(self.client.encapsulate(message, action=act))
 
     def set_target(self, target):
         """Set target for messages"""
@@ -79,16 +83,17 @@ class LoginWindow(Window):
 
     def build_window(self):
         """Build login window, , set widgets positioning and event bindings"""
-        self.label = tk.Label(self.root, text='Enter your login', width=20, font=self.font)
-        self.label.pack(side=tk.LEFT, expand=tk.YES)
+        welcome_text = "Welcome to SECRET WORDS.\nEnter your name."
+        self.label = tk.Label(self.root, text=welcome_text, width=30, height=5, font=self.font)
+        self.label.pack(side=tk.TOP, expand=tk.YES)
 
-        self.entry = tk.Entry(self.root, width=20, font=self.font)
+        self.entry = tk.Entry(self.root, width=15, font=self.font)
         self.entry.focus_set()
-        self.entry.pack(side=tk.LEFT)
+        self.entry.pack(side=tk.LEFT, expand=tk.YES)
         self.entry.bind('<Return>', self.get_login_event)
 
         self.button = tk.Button(self.root, text='Login', font=self.font)
-        self.button.pack(side=tk.LEFT)
+        self.button.pack(side=tk.LEFT, expand=tk.YES)
         self.button.bind('<Button-1>', self.get_login_event)
 
     def run(self):
@@ -104,7 +109,7 @@ class LoginWindow(Window):
 
 class ChatWindow(Window):
     def __init__(self, gui, font):
-        super().__init__("Python Chat", font)
+        super().__init__("Secret Words", font)
         self.gui = gui
         self.messages_list = None
         self.logins_list = None

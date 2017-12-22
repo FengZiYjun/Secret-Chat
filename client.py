@@ -152,12 +152,15 @@ class Client(threading.Thread):
 		print('Client receives: ' + str(rec_dict))
 		# notify other users a new incoming user
 		if 'action' in rec_dict and rec_dict['action'] == '2':
-			clients = rec_dict['msg']
+			clients = rec_dict['msg'] + ' ALL' # ALL users for broadcast
 			print('update client list: ' + clients)
 			self.gui.main_window.update_login_list(clients.split(' '))
 		else:
 			# display message in the chat window
-			self.gui.display_message(rec_dict['msg'])
+			message = rec_dict['msg']
+			if len(message) > 0 and message[-1] != '\n':
+				message += '\n'
+			self.gui.display_message(message)
 
 	def send(self, meg):
 		# meg --- encrypted bytes

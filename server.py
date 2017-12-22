@@ -279,6 +279,8 @@ class ClientThread(threading.Thread):
 				elif action[0] == '2':
 					msg = rec_dict['msg']
 					print('message broadcase: ' + msg)
+					# action='2' has preserved for updating list, use action='1' instead
+					msg = make_protocol_msg(msg, 'ALL', 2, self.address[0], self.address[1], action='1')
 					self.__broadcast(msg)
 
 			else:
