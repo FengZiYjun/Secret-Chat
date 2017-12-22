@@ -1,30 +1,23 @@
 # Secret Chat
 *"This is a private conversation."*
+
 Secret Chat allows you to chat with your important ones in an absolute private and secure manner.
 
-## Demo
+## Requirements
+Python 3.6
+
+Python packages:
+tkinter, threading, socket, queue, time, select, pyaes
+
 
 ## Setup
-1. Requirements
+1. type in the command line `python server.py` to start the server process.
 
-- Python 3.6
+2. type in the command line `python client.py` to create a new client.
 
-- Python packages:
- - tkinter
- - threading
- - socket
- - queue
- - time
- - select
- - pyaes
+3. Enter your user name in the blanck and click "login".
 
-2. type in the command line `python server.py` to start the server process.
-
-3. type in the command line `python client.py` to create a new client.
-
-4. Enter your user name in the blanck and click "login".
-
-5. Then you can chat with everyone connecting to the same server.
+4. Then you can chat with everyone connecting to the same server.
 
 ## Usage
 1. If you want to chat with someone online, click his/her name inside the name list and type words in the chat window.
@@ -36,3 +29,4 @@ Secret Chat allows you to chat with your important ones in an absolute private a
 2. **Secret Words** is built for secret chatting. Therefore, neither the server nor the client stores your data, including your user name, account, friend list and chatting history. 
 
 ## Technical Details
+![](./img/HTTPS.png)
