@@ -149,10 +149,11 @@ class Client(threading.Thread):
 	def process_recv_msg(self, data):
 		decr_bytes = pyaes.AESModeOfOperationCTR(self.__password).decrypt(data)
 		rec_dict = analyze_protocol_msg(decr_bytes.decode())
-
+		print('Client receives: ' + str(rec_dict))
 		# notify other users a new incoming user
 		if 'action' in rec_dict and rec_dict['action'] == '2':
 			clients = rec_dict['msg']
+			print('update client list: ' + clients)
 			self.gui.main_window.update_login_list(clients.split(' '))
 		else:
 			# display message in the chat window

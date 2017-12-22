@@ -27,12 +27,15 @@ class Server(threading.Thread):
 		self.msg_queues = {}
 
 		# record all connection sockets
-		# 
 		self.connection_list = []
 
 		# key: login_user(the name string)
 		# value: client_socket
 		self.login_dict = {}
+
+		# key: client_socket
+		# value: client password string
+		self.__password_dict = {}
 
 		# A reentrant lock must be released by the thread that acquired it. 
 		# Once a thread has acquired a reentrant lock, the same thread may acquire it again without blocking; 
@@ -71,6 +74,20 @@ class Server(threading.Thread):
 			self.connection_list.remove(user_sock)
 		if user_sock in self.msg_queues:
 			del self.msg_queues[user_sock]
+		if user_sock in self.__password_dict:
+			del self.__password_dict[user_sock]
+
+	def get_password(self, client_socket):
+		if client_socket not in self.__password_dict:
+			return None
+		else:
+			return self.__password_dict[client_socket]
+
+	def set_password(self, client_sock, password):
+		if client_sock not in self.__password_dict:
+			self.__password_dict[client_sock] = password
+		else:
+			print('cannot reset password!')
 
 	def run(self):
 		print('server is running.')
@@ -156,7 +173,16 @@ class ClientThread(threading.Thread):
 				self.disconnect()
 
 		# out of the main loop
-		print('Closing client thread, connection' + str(self.address))
+		print('Closing {} thread, connection'.format(self.login_user))
+
+	def __broadcast(self, msg):
+		for client_sock, queue in self.master.msg_queues.items():
+			pswd = self.master.get_password(client_sock)
+			if pswd is not None:
+				cipher_bytes = pyaes.AESModeOfOperationCTR(pswd.encode()).encrypt(msg)
+				queue.put(cipher_bytes)
+			else:
+				print('No such a client.')
 
 	def update_client_list(self):
     	# Tell all users that client list has changed
@@ -164,9 +190,7 @@ class ClientThread(threading.Thread):
 		# used by GUI
 		clients = ' '.join([user for user in self.master.login_dict])
 		msg = make_protocol_msg(clients, 'ALL', '2', HOST, PORT, action='2')
-		cipher_bytes = pyaes.AESModeOfOperationCTR(self.__password.encode()).encrypt(msg)
-		for cliens_sock, queue in self.master.msg_queues.items():
-			queue.put(cipher_bytes)
+		self.__broadcast(msg)
 
 	def disconnect(self):
 		"""disconnect from server"""
@@ -224,8 +248,9 @@ class ClientThread(threading.Thread):
 					# allocate this socket to this user
 					if self.login_user in self.master.login_dict:
 						print('redundent login. Switch to new.')
-						self.remove_user(self.login_user, self.master.login_dict[self.login_user])
+						self.master.remove_user(self.login_user, self.master.login_dict[self.login_user])
 					self.master.login_dict[self.login_user] = self.sock
+					self.master.set_password(self.sock, self.__password)
 
 					# tell all users the login of a new one
 					self.update_client_list()
@@ -238,20 +263,24 @@ class ClientThread(threading.Thread):
 				elif action[0] == '1':
 					to_user = action[2:]
 					if to_user in self.master.login_dict:
+						# get the connection socket of the target client
 						sock = self.master.login_dict[to_user]
 						msg = rec_dict['msg']
 						print('message sent to ' + to_user + ': ' + msg)
 						msg = make_protocol_msg(msg, to_user, 2, self.address[0], self.address[1], action='1')
-						cipher_bytes = pyaes.AESModeOfOperationCTR(self.__password.encode()).encrypt(msg)
-						self.master.msg_queues[sock].put(cipher_bytes)
+						pswd = self.master.get_password(sock)
+						if pswd is not None:
+							cipher_bytes = pyaes.AESModeOfOperationCTR(pswd.encode()).encrypt(msg)
+							self.master.msg_queues[sock].put(cipher_bytes)
+						else:
+							print('cannot find pswd of user ' + to_user)
 				
 				# broadcast
 				elif action[0] == '2':
 					msg = rec_dict['msg']
 					print('message broadcase: ' + msg)
-					cipher_bytes = pyaes.AESModeOfOperationCTR(self.__password.encode()).encrypt(msg)
-					for cliens_sock, queue in self.msg_queues.items():
-						queue.put(cipher_bytes)
+					self.__broadcast(msg)
+
 			else:
 				print('no action available')
 		return shutdown
