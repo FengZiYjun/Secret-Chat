@@ -16,8 +16,8 @@ class Server(threading.Thread):
 		self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 		# get local machine name
-		self.host = HOST
-		self.port = PORT
+		self.host = host
+		self.port = port
 
 		self.buffer_size = 2048
 
@@ -319,21 +319,3 @@ class ClientThread(threading.Thread):
 # Create new server with (IP, port)
 if __name__ == '__main__':
     server = Server(HOST, PORT)
-
-
-
-'''
-# create a socket
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-# get local machine name
-host = socket.gethostname()                           
-port = 9999                                           
-
-# bind to the port with this server
-server.bind((host, port))                                  
-
-# queue up to 5 requests
-server.listen(5)                                           
-'''
-
