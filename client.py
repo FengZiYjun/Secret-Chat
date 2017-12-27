@@ -16,8 +16,8 @@ class Client(threading.Thread):
 		super().__init__(daemon=True, target=self.run)
 
 		# get local machine name, also the server
-		self.host = HOST
-		self.port = 9876
+		self.host = host
+		self.port = port
 		self.sock = None
 
 		# used by GUI
@@ -56,7 +56,7 @@ class Client(threading.Thread):
 		return password.encode()
 
 	def __validate_paten(self, public, modulus):
-		# do nothing
+		# to do
 		return True
 
 	def __encrypt(self, meg, public_key, n):

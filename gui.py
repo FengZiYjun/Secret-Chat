@@ -83,7 +83,7 @@ class LoginWindow(Window):
 
     def build_window(self):
         """Build login window, , set widgets positioning and event bindings"""
-        welcome_text = "Welcome to SECRET WORDS.\nEnter your name."
+        welcome_text = "Welcome to SECRET CHAT.\nEnter your name."
         self.label = tk.Label(self.root, text=welcome_text, width=30, height=5, font=self.font)
         self.label.pack(side=tk.TOP, expand=tk.YES)
 
