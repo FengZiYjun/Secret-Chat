@@ -262,12 +262,13 @@ class ClientThread(threading.Thread):
 				# one-to-one chat
 				elif action[0] == '1':
 					to_user = action[2:]
+					from_user = self.login_user
 					if to_user in self.master.login_dict:
 						# get the connection socket of the target client
 						sock = self.master.login_dict[to_user]
 						msg = rec_dict['msg']
-						print('message sent to ' + to_user + ': ' + msg)
-						msg = make_protocol_msg(msg, to_user, 2, self.address[0], self.address[1], action='1')
+						print('message from ' + from_user + ' sent to ' + to_user + ': ' + msg)
+						msg = make_protocol_msg(msg, to_user, 2, self.address[0], self.address[1], action='1 ' + from_user)
 						pswd = self.master.get_password(sock)
 						if pswd is not None:
 							cipher_bytes = pyaes.AESModeOfOperationCTR(pswd.encode()).encrypt(msg)
@@ -280,7 +281,7 @@ class ClientThread(threading.Thread):
 					msg = rec_dict['msg']
 					print('message broadcase: ' + msg)
 					# action='2' has preserved for updating list, use action='1' instead
-					msg = make_protocol_msg(msg, 'ALL', 2, self.address[0], self.address[1], action='1')
+					msg = make_protocol_msg(msg, 'ALL', 2, self.address[0], self.address[1], action='1 ' + self.login_user)
 					self.__broadcast(msg)
 
 			else:

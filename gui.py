@@ -109,7 +109,7 @@ class LoginWindow(Window):
 
 class ChatWindow(Window):
     def __init__(self, gui, font):
-        super().__init__("Secret Words", font)
+        super().__init__("Secret Chat", font)
         self.gui = gui
         self.messages_list = None
         self.logins_list = None
@@ -135,17 +135,18 @@ class ChatWindow(Window):
         self.root.rowconfigure(0, weight=1)
         self.root.columnconfigure(0, weight=1)
 
+        # swap frame00 and frame01
         # List of messages
         frame00 = tk.Frame(main_frame)
-        frame00.grid(column=0, row=0, rowspan=2, sticky=tk.N + tk.S + tk.W + tk.E)
+        frame00.grid(column=1, row=0, rowspan=2, sticky=tk.N + tk.S + tk.W + tk.E)
 
         # List of logins
         frame01 = tk.Frame(main_frame)
-        frame01.grid(column=1, row=0, rowspan=3, sticky=tk.N + tk.S + tk.W + tk.E)
+        frame01.grid(column=0, row=0, rowspan=2, sticky=tk.N + tk.S + tk.W + tk.E)
 
         # Message entry
         frame02 = tk.Frame(main_frame)
-        frame02.grid(column=0, row=2, columnspan=1, sticky=tk.N + tk.S + tk.W + tk.E)
+        frame02.grid(column=0, row=2, columnspan=2, sticky=tk.N + tk.S + tk.W + tk.E)
 
         # Buttons
         frame03 = tk.Frame(main_frame)
@@ -159,7 +160,7 @@ class ChatWindow(Window):
 
         # ScrolledText widget for displaying messages
         self.messages_list = scrolledtext.ScrolledText(frame00, wrap='word', font=self.font)
-        self.messages_list.insert(tk.END, 'Welcome to Python Chat\n')
+        self.messages_list.insert(tk.END, 'Start Your Secret Chat\n\n')
         self.messages_list.configure(state='disabled')
 
         # Listbox widget for displaying active users and selecting them
@@ -173,7 +174,7 @@ class ChatWindow(Window):
         self.entry.bind('<Return>', self.send_entry_event)
 
         # Button widget for sending messages
-        self.send_button = tk.Button(frame03, text='Send', font=self.font)
+        self.send_button = tk.Button(frame03, text='Send Message', font=self.font)
         self.send_button.bind('<Button-1>', self.send_entry_event)
 
         # Button for exiting
@@ -181,8 +182,8 @@ class ChatWindow(Window):
         self.exit_button.bind('<Button-1>', self.exit_event)
 
         # Positioning widgets in frame
-        self.messages_list.pack(fill=tk.BOTH, expand=tk.YES)
-        self.logins_list.pack(fill=tk.BOTH, expand=tk.YES)
+        self.logins_list.pack(fill=tk.BOTH, expand=tk.YES, side=tk.LEFT)
+        self.messages_list.pack(fill=tk.BOTH, expand=tk.YES, side=tk.LEFT)
         self.entry.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.YES)
         self.send_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.YES)
         self.exit_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.YES)

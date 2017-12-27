@@ -22,7 +22,6 @@ class Client(threading.Thread):
 
 		# used by GUI
 		# write buffer: from cliet to server
-		# store raw string, do not encode
 		# CHANGE! store bytes
 		self.queue = queue.Queue()
 		self.target = ''
@@ -158,6 +157,10 @@ class Client(threading.Thread):
 		else:
 			# display message in the chat window
 			message = rec_dict['msg']
+			sender = rec_dict.get('action', '1 unknown')[2:]
+			time_tag = time.asctime(time.localtime(time.time()))
+			message = sender + ">>>" + message
+			message = message + ' '*(60 - len(message)) + time_tag
 			if len(message) > 0 and message[-1] != '\n':
 				message += '\n'
 			self.gui.display_message(message)
@@ -170,11 +173,6 @@ class Client(threading.Thread):
 			except socket.error:
 				self.sock.close()
 				GUI.display_alert('client failed to send. Exit.')
-
-	'''
-	def receive(self):
-		return self.sock.recv(2048).decode('utf-8')
-	'''
 
 	def close(self):
 		self.sock.close()
@@ -229,52 +227,3 @@ class Client(threading.Thread):
 # Create new client with (IP, port)
 if __name__ == '__main__':
 	Client(HOST, PORT)
-
-#client = Client()
-#client.connect()
-#client.send('hey,buddy')
-#print(client.receive())
-#client.close()
-
-
-'''
-# create a socket object
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-
-# get local machine name
-host = socket.gethostname()                           
-port = 9876
-
-# connection to the server with hostname on the port.
-s.connect((host, port))                               
-
-# Receive no more than 1024 bytes
-#msg = s.recv(2048)                                     
-#print (msg.decode('utf-8'))
-
-s.sendall(make_protocol_message('hello', host, port))
-msg = s.recv(2048)                                     
-print (msg.decode('utf-8'))
-
-s.close()
-'''
-
-'''
-	def connect(self):
-		if self.port > 999 and self.__validate_host(self.host):
-			self.sock.connect((self.host, self.port))
-			self.sock.sendall(self.__make_protocol_msg('', self.dest_addr, 0).encode())
-
-			rev_dict = self.__analyze_protocol_msg(self.receive())
-			print(rev_dict)
-			if rev_dict['affair'] == '1':
-				public, modulus = tuple(rev_dict['msg'].split(' '))
-				public, modulus = self.str2int(public, modulus)
-				if self.__validate_paten(public, modulus):
-					raw_msg = self.__make_protocol_msg(self.__make_password(), self.dest_addr, 1)
-					encr_msg = self.__encrypt(raw_msg, public, modulus)
-					self.sock.sendall(encr_msg.encode())
-
-		else:
-			raise('invalid parameters for connect.')
-'''
