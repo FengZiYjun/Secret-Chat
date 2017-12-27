@@ -203,19 +203,30 @@ class Client(threading.Thread):
 						GUI.display_alert('Socket error. Exit.')
 						self.sock.close()
 						break
-
-				self.process_recv_msg(data)
+				if len(data) is not 0:
+					self.process_recv_msg(data)
+				else:
+					print('Server error')
+					GUI.display_alert('Server error. Exit.')
+					self.sock.close()
+					break
 
 			if self.sock in writable:
-				if not self.queue.empty():
-					# Remove and return an item from the queue.
-					data = self.queue.get()
-					self.send(data)
-					# Indicate that a formerly enqueued task is complete. Used by queue consumer threads. 
-					self.queue.task_done()
-				else:
-					# Suspend execution of the calling thread for the given number of seconds. 
-					time.sleep(0.1)
+				try:
+					if not self.queue.empty():
+						# Remove and return an item from the queue.
+						data = self.queue.get()
+						self.send(data)
+						# Indicate that a formerly enqueued task is complete. Used by queue consumer threads. 
+						self.queue.task_done()
+					else:
+						# Suspend execution of the calling thread for the given number of seconds. 
+						time.sleep(0.1)
+				except socket.error:
+					print('Socket error in reading')
+					GUI.display_alert('Socket error. Exit.')
+					self.sock.close()
+					break
 
 			if self.sock in exceptional:
 				print('Server error')
